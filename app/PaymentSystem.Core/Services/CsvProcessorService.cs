@@ -1,13 +1,15 @@
 using CsvHelper;
 using CsvHelper.Configuration;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using PaymentSystem.Core.Db;
 using PaymentSystem.Core.DTOs;
 using PaymentSystem.Core.Models;
 using System.Globalization;
 
-namespace PaymentSystem.API.Services;
+namespace PaymentSystem.Core.Services;
 
-public class CsvProcessorService
+public class CsvProcessorService : ICsvProcessorService
 {
     private readonly PaymentDbContext _context;
     private readonly ILogger<CsvProcessorService> _logger;
@@ -62,5 +64,33 @@ public class CsvProcessorService
             await _context.Transferencias.AddRangeAsync(validos);
             await _context.SaveChangesAsync();
         }
+    }
+
+    public async Task GenerarResumenCsvAsync(string rutaSalida)
+    {
+        var transferencias = await _context.Transferencias.ToListAsync();
+
+        var resumenes = transferencias
+            .AsParallel()
+            .GroupBy(t => new { t.RutReceptor, t.NombreReceptor, t.NombreBanco, t.Moneda })
+            .Select(g => new ResumenTransferenciaDto
+            {
+                RutReceptor = g.Key.RutReceptor,
+                NombreReceptor = g.Key.NombreReceptor,
+                NombreBanco = g.Key.NombreBanco,
+                Moneda = g.Key.Moneda,
+                MontoTotal = g.Sum(t => t.Monto)
+            })
+            .ToList();
+
+        using var writer = new StreamWriter(rutaSalida);
+        using var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            HasHeaderRecord = true
+        });
+
+        await csv.WriteRecordsAsync(resumenes);
+
+        _logger.LogInformation("Archivo de resumen generado en: {Path}", rutaSalida);
     }
 }

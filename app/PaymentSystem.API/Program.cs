@@ -16,7 +16,7 @@ builder.Services.AddDbContext<PaymentDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddScoped<CsvProcessorService>();
+builder.Services.AddScoped<ICsvProcessorService, CsvProcessorService>();
 
 var app = builder.Build();
 

@@ -1,7 +1,21 @@
-using PaymentSystem.Worker;
+using Microsoft.EntityFrameworkCore;
+using PaymentSystem.Core.Db;
+using PaymentSystem.Core.Services;
+using PaymentSystem.Worker; 
 
-var builder = Host.CreateApplicationBuilder(args);
-builder.Services.AddHostedService<Worker>();
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices((context, services) =>
+    {
+        services.AddDbContext<PaymentDbContext>(options =>
+            options.UseNpgsql(
+                context.Configuration.GetConnectionString("DefaultConnection"),
+                b => b.MigrationsAssembly("PaymentSystem.API")
+            ));
 
-var host = builder.Build();
-host.Run();
+        services.AddScoped<ICsvProcessorService, CsvProcessorService>();
+
+        services.AddHostedService<Worker>();
+    })
+    .Build();
+
+await host.RunAsync();

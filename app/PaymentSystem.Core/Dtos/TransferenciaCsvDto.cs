@@ -1,4 +1,6 @@
 using CsvHelper.Configuration.Attributes;
+using CsvHelper.Configuration.Attributes;
+using CsvHelper.TypeConversion;
 
 namespace PaymentSystem.Core.DTOs;
 
@@ -32,5 +34,7 @@ public class TransferenciaCsvDto
     public string Moneda { get; set; } = string.Empty;
 
     [Index(9)]
+    
+    [TypeConverter(typeof(CustomDateTimeConverter))]
     public DateTime Fecha { get; set; }
 }

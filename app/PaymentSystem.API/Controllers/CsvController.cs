@@ -7,9 +7,9 @@ namespace PaymentSystem.API.Controllers;
 [Route("api/[controller]")]
 public class CsvController : ControllerBase
 {
-    private readonly CsvProcessorService _csvProcessor;
+    private readonly ICsvProcessorService _csvProcessor;
 
-    public CsvController(CsvProcessorService csvProcessor)
+    public CsvController(ICsvProcessorService csvProcessor)
     {
         _csvProcessor = csvProcessor;
     }
