@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using PaymentSystem.Core.Services;
+using System.Diagnostics;
 
 namespace PaymentSystem.API.Controllers;
 
@@ -17,7 +18,7 @@ public class CsvController : ControllerBase
     }
 
     [HttpPost("procesar")]
-    public async Task<IActionResult> ProcesarCsv([FromQuery] string archivo)
+    public async Task<IActionResult> ProcesarCsv([FromQuery] string archivo, [FromQuery] string salida)
     {
         if (string.IsNullOrWhiteSpace(archivo))
             return BadRequest("Debes especificar la ruta del archivo de entrada.");
@@ -26,10 +27,13 @@ public class CsvController : ControllerBase
             return NotFound($"El archivo '{archivo}' no existe.");
 
         try
-        {
+        { 
+            var stopwatch = Stopwatch.StartNew();
             // Generar ruta de salida
             var directorio = Path.GetDirectoryName(archivo)!;
-            var rutaSalida = Path.Combine(directorio, "salida.csv");
+            var rutaSalida = string.IsNullOrWhiteSpace(salida)
+            ? Path.Combine(directorio, "salida.csv")
+            : Path.Combine(directorio, salida);
 
             _logger.LogInformation("Procesando archivo desde API...");
             _logger.LogInformation("Entrada: {Ruta}", archivo);
@@ -37,7 +41,8 @@ public class CsvController : ControllerBase
 
             await _csvProcessor.ProcesarCsvAsync(archivo);
             await _csvProcessor.GenerarResumenCsvAsync(rutaSalida);
-
+            stopwatch.Stop();
+            _logger.LogInformation("Tiempo total de ejecución desde API: {Tiempo} ms", stopwatch.ElapsedMilliseconds);
             return Ok(new
             {
                 mensaje = "Archivo procesado correctamente.",

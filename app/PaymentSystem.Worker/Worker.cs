@@ -58,10 +58,13 @@ public class Worker : BackgroundService
                 using var scope = _serviceProvider.CreateScope();
                 var csvProcessor = scope.ServiceProvider.GetRequiredService<ICsvProcessorService>();
 
+                var stopwatch = Stopwatch.StartNew();
+
                 await csvProcessor.ProcesarCsvAsync(rutaEntrada);
                 await csvProcessor.GenerarResumenCsvAsync(rutaSalida);
 
-                _logger.LogInformation("Proceso finalizado correctamente.");
+                stopwatch.Stop();
+                _logger.LogInformation("Proceso finalizado correctamente en {Tiempo} ms", stopwatch.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {

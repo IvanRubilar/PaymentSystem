@@ -92,14 +92,23 @@ public async Task GenerarResumenCsvAsync(string rutaSalida)
 
     var resumen = transferencias
         .AsParallel()
-        .Select(t => new
+        .GroupBy(t => new
         {
-            RutReceptor = t.RutReceptor,
-            NombreReceptor = t.NombreReceptor,
-            Banco = t.NombreBanco,
-            MontoTotal = t.Monto,
-            Moneda = t.Moneda
+            t.RutReceptor,
+            t.NombreReceptor,
+            t.NombreBanco,
+            t.Moneda
         })
+        .Select(g => new
+        {
+            RutReceptor = g.Key.RutReceptor,
+            NombreReceptor = g.Key.NombreReceptor,
+            Banco = g.Key.NombreBanco,
+            MontoTotal = g.Sum(t => t.Monto),
+            Moneda = g.Key.Moneda
+        })
+        .OrderBy(r => r.Banco)
+        .ThenBy(r => r.Moneda)
         .ToList();
 
     using var writer = new StreamWriter(rutaSalida);
