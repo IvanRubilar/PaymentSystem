@@ -40,7 +40,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - ModoDebug=true
+      - ModoDebug=false
     volumes:
       - ./app/archivos:/app/archivos
 
