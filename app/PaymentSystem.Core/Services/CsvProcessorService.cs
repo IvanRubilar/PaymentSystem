@@ -1,22 +1,23 @@
 using CsvHelper;
 using CsvHelper.Configuration;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PaymentSystem.Core.Db;
 using PaymentSystem.Core.DTOs;
 using PaymentSystem.Core.Models;
 using System.Globalization;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 
 namespace PaymentSystem.Core.Services;
 
 public class CsvProcessorService : ICsvProcessorService
 {
-    private readonly PaymentDbContext _context;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CsvProcessorService> _logger;
 
-    public CsvProcessorService(PaymentDbContext context, ILogger<CsvProcessorService> logger)
+    public CsvProcessorService(IServiceProvider serviceProvider, ILogger<CsvProcessorService> logger)
     {
-        _context = context;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -55,42 +56,55 @@ public class CsvProcessorService : ICsvProcessorService
                 Monto = dto.Monto,
                 Moneda = dto.Moneda,
                 Fecha = DateTime.SpecifyKind(dto.Fecha, DateTimeKind.Utc)
-            }).ToList();
-
-        _logger.LogInformation("Registros válidos: {Count}", validos.Count);
-
-        if (validos.Count > 0)
-        {
-            await _context.Transferencias.AddRangeAsync(validos);
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    public async Task GenerarResumenCsvAsync(string rutaSalida)
-    {
-        var transferencias = await _context.Transferencias.ToListAsync();
-
-        var resumenes = transferencias
-            .AsParallel()
-            .GroupBy(t => new { t.RutReceptor, t.NombreReceptor, t.NombreBanco, t.Moneda })
-            .Select(g => new ResumenTransferenciaDto
-            {
-                RutReceptor = g.Key.RutReceptor,
-                NombreReceptor = g.Key.NombreReceptor,
-                NombreBanco = g.Key.NombreBanco,
-                Moneda = g.Key.Moneda,
-                MontoTotal = g.Sum(t => t.Monto)
             })
             .ToList();
 
-        using var writer = new StreamWriter(rutaSalida);
-        using var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture)
+        _logger.LogInformation("Total registros válidos: {Count}", validos.Count);
+
+        if (!validos.Any())
         {
-            HasHeaderRecord = true
-        });
+            _logger.LogWarning("No se encontraron registros válidos para insertar.");
+            return;
+        }
 
-        await csv.WriteRecordsAsync(resumenes);
+        // Procesamiento en paralelo: insertar por chunks
+        var tasks = validos
+            .Chunk(100)
+            .Select(async chunk =>
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var scopedContext = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
 
-        _logger.LogInformation("Archivo de resumen generado en: {Path}", rutaSalida);
+                await scopedContext.Transferencias.AddRangeAsync(chunk);
+                await scopedContext.SaveChangesAsync();
+            });
+
+        await Task.WhenAll(tasks);
+        _logger.LogInformation("Inserción paralela completada.");
     }
+
+public async Task GenerarResumenCsvAsync(string rutaSalida)
+{
+    using var scope = _serviceProvider.CreateScope();
+    var scopedContext = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+
+    var transferencias = await scopedContext.Transferencias.ToListAsync();
+
+    var resumen = transferencias
+        .AsParallel()
+        .Select(t => new
+        {
+            RutReceptor = t.RutReceptor,
+            NombreReceptor = t.NombreReceptor,
+            Banco = t.NombreBanco,
+            MontoTotal = t.Monto,
+            Moneda = t.Moneda
+        })
+        .ToList();
+
+    using var writer = new StreamWriter(rutaSalida);
+    using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+    await csv.WriteRecordsAsync(resumen);
+}
+
 }
