@@ -1,6 +1,0 @@
- Id | RutEmisor  | NombreEmisor | IdTransaccion | RutReceptor | NombreReceptor | CodigoBanco | NombreBanco | Monto | Moneda |         Fecha          
-----+------------+--------------+---------------+-------------+----------------+-------------+-------------+-------+--------+------------------------
-  1 | 11111111-1 | Juan Pérez   | TX001         | 22222222-2  | Ana López      | 001         | Banco Uno   | 10000 | CLP    | 2025-01-07 00:00:00+00
-  2 | 33333333-3 | Pedro Gómez  | TX002         | 44444444-4  | Lucía Soto     | 002         | Banco Dos   | 25000 | CLP    | 2025-02-07 00:00:00+00
-(2 rows)
-

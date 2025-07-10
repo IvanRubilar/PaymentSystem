@@ -27,9 +27,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+    db.Database.Migrate();
+}
+
 app.UseAuthorization();
 
 app.MapControllers(); 
-
+app.Urls.Add("http://0.0.0.0:80");
 app.Run();

@@ -1,23 +1,48 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15
-    container_name: postgres-db
-    restart: always
+    container_name: pagos_db
     environment:
+      POSTGRES_DB: pagosdb
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: clave123
-      POSTGRES_DB: pagosdb
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - net-pagos
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d pagosdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./app
+      dockerfile: PaymentSystem.API/Dockerfile
+    container_name: pagos_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ./app/archivos:/app/archivos
+    ports:
+      - "5000:80"
+
+  worker:
+    build:
+      context: ./app
+      dockerfile: PaymentSystem.Worker/Dockerfile
+    container_name: pagos_worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ModoDebug=true
+    volumes:
+      - ./app/archivos:/app/archivos
 
 volumes:
   postgres_data:
-
-networks:
-  net-pagos:
